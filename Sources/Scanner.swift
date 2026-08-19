@@ -178,6 +178,10 @@ enum Scanner {
             if let symbol = symbolIcon(for: own) {
                 items[i].icon = symbol
             }
+            // 快取優先：有截過就直接用，避免開面板時圖示先顯示 app 圖示再跳掉
+            if let cached = Capture.cached(for: items[i]) {
+                items[i].icon = cached
+            }
         }
 
         // 依照在選單列上的實際位置排序，被藏起來的自然排在前面

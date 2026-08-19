@@ -4,6 +4,27 @@ import ScreenCaptureKit
 /// 截取選單列圖示自己畫的那塊畫面。需要「螢幕錄製」權限。
 enum Capture {
 
+    /// 截好的圖示快取。開面板時直接拿現成的，才不會先顯示 app 圖示再跳成截圖。
+    /// 只在主執行緒讀寫。
+    private static var cache: [String: NSImage] = [:]
+
+    private static func key(_ item: MBItem) -> String { item.appName + "|" + item.itemName }
+
+    static func cached(for item: MBItem) -> NSImage? { cache[key(item)] }
+
+    static func remember(_ image: NSImage, for item: MBItem) { cache[key(item)] = image }
+
+    /// 啟動時先在背景把圖示截好放進快取，這樣第一次開面板就不會跳
+    static func prewarm() {
+        Task { @MainActor in
+            let items = Scanner.scan()
+            let glyphs = await glyphs(for: items)
+            for item in items {
+                if let glyph = glyphs[item.id] { remember(glyph, for: item) }
+            }
+        }
+    }
+
     /// 選單列圖示的視窗都在 layer 25
     static func statusWindows() async throws -> [SCWindow] {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)

@@ -3,7 +3,7 @@ import SwiftUI
 import Carbon.HIToolbox
 
 extension Notification.Name {
-    static let menuPeekHotKey = Notification.Name("menuPeekHotKey")
+    static let menuBabaHotKey = Notification.Name("menuBabaHotKey")
 }
 
 /// 無邊框面板預設不能成為 key window，搜尋框就收不到鍵盤輸入，所以要覆寫
@@ -24,8 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         registerHotKey()
         NotificationCenter.default.addObserver(self, selector: #selector(togglePanel),
-                                               name: .menuPeekHotKey, object: nil)
+                                               name: .menuBabaHotKey, object: nil)
         if !AXIsProcessTrusted() { promptForAccessibility() }
+        Capture.prewarm()
 
         // 開發用：驗證能不能截到圖示本身的畫面
         if CommandLine.arguments.contains("--capturetest") {
@@ -36,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     let windows = try await Capture.statusWindows()
                     mpLog("capturetest: layer 25 視窗 \(windows.count) 個")
                     let items = Scanner.scan()
-                    let dir = NSHomeDirectory() + "/menupeek-icons"
+                    let dir = NSHomeDirectory() + "/menubaba-icons"
                     try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
                     for (item, win) in Capture.match(items: items, windows: windows) {
                         guard let win else { mpLog("  \(item.displayTitle): 配對不到視窗"); continue }
@@ -54,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             mpLog("  \(item.displayTitle): 截圖失敗 \(error)")
                         }
                     }
-                    mpLog("capturetest: 完成，圖片在 ~/menupeek-icons")
+                    mpLog("capturetest: 完成，圖片在 ~/menubaba-icons")
                 } catch {
                     mpLog("capturetest: 失敗 \(error)")
                 }
@@ -98,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = NSImage(systemSymbolName: "rectangle.grid.2x2",
-                                     accessibilityDescription: "MenuPeek")
+                                     accessibilityDescription: "MenuBaba")
         item.button?.target = self
         item.button?.action = #selector(statusItemClicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -132,7 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(login)
 
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "結束 MenuPeek", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "結束 MenuBaba", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         menu.addItem(quit)
 
@@ -160,7 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                  eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), { _, _, _ -> OSStatus in
-            NotificationCenter.default.post(name: .menuPeekHotKey, object: nil)
+            NotificationCenter.default.post(name: .menuBabaHotKey, object: nil)
             return noErr
         }, 1, &spec, nil, nil)
 

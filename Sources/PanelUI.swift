@@ -27,7 +27,9 @@ final class PanelModel: ObservableObject {
             let glyphs = await Capture.glyphs(for: snapshot)
             guard !glyphs.isEmpty else { return }
             for index in items.indices {
-                if let glyph = glyphs[items[index].id] { items[index].icon = glyph }
+                guard let glyph = glyphs[items[index].id] else { continue }
+                items[index].icon = glyph
+                Capture.remember(glyph, for: items[index])
             }
         }
     }

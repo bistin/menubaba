@@ -1,4 +1,4 @@
-# MenuPeek
+# MenuBaba
 
 macOS 選單列圖示的搜尋面板。按 `⌃⌥⌘M` 叫出面板，可以看到**全部**的選單列圖示
 （包含被瀏海遮住、或被其他選單列管理器推出畫面的），打字過濾，點擊直接觸發。
@@ -44,10 +44,10 @@ macOS 會把放不下的圖示直接藏起來，而且沒有任何介面可以�
 ## 開發
 
 ```sh
-./build.sh          # 編譯 + 簽章，安裝到 ~/Applications/MenuPeek.app
+./build.sh          # 編譯 + 簽章，安裝到 ~/Applications/MenuBaba.app
 ```
 
-簽章用的是本機自簽憑證 `MenuPeek Dev`（keychain 裡）。ad-hoc 簽章不能用：
+簽章用的是本機自簽憑證 `MenuBaba Dev`（keychain 裡）。ad-hoc 簽章不能用：
 每次重新編譯 cdhash 都會變，TCC 會判定成不同的 app，輔助使用權限就掉了。
 
-開發用參數：`--show` 啟動即開面板。除錯記錄寫在 `~/menupeek-debug.log`。
+開發用參數：`--show` 啟動即開面板。除錯記錄寫在 `~/menubaba-debug.log`。
