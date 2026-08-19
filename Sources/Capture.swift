@@ -1,0 +1,54 @@
+import Cocoa
+import ScreenCaptureKit
+
+/// 截取選單列圖示自己畫的那塊畫面。需要「螢幕錄製」權限。
+enum Capture {
+
+    /// 選單列圖示的視窗都在 layer 25
+    static func statusWindows() async throws -> [SCWindow] {
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+        return content.windows.filter { $0.windowLayer == 25 }
+    }
+
+    static func image(of window: SCWindow) async throws -> NSImage {
+        let filter = SCContentFilter(desktopIndependentWindow: window)
+        let config = SCStreamConfiguration()
+        config.width = Int(window.frame.width * 2)
+        config.height = Int(window.frame.height * 2)
+        config.showsCursor = false
+        config.ignoreShadowsSingleWindow = true
+        let cg = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        return NSImage(cgImage: cg, size: window.frame.size)
+    }
+
+    /// 取得每個項目在選單列上真正畫出來的圖示。
+    /// 沒有螢幕錄製權限就回空的，呼叫端會繼續沿用 app 圖示，不會壞掉。
+    static func glyphs(for items: [MBItem]) async -> [Int: NSImage] {
+        guard CGPreflightScreenCaptureAccess() else { return [:] }
+        guard let windows = try? await statusWindows() else { return [:] }
+        var result: [Int: NSImage] = [:]
+        for (item, window) in match(items: items, windows: windows) {
+            guard let window, let image = try? await image(of: window) else { continue }
+            // 時鐘那種是一長條文字（165x33），縮進方格會糊成一團看不懂。
+            // 太扁的就不採用，讓呼叫端沿用原本的符號／app 圖示。
+            guard image.size.height > 0, image.size.width / image.size.height <= 2.5 else { continue }
+            // 選單列圖示幾乎都是單色 template，標成 template 才能跟著淺色/深色模式變色，
+            // 否則白色圖示在淺色面板上會整個看不見
+            image.isTemplate = true
+            result[item.id] = image
+        }
+        return result
+    }
+
+    /// 把 AX 項目對應到它的視窗：靠水平中心點最接近來配對
+    static func match(items: [MBItem], windows: [SCWindow]) -> [(MBItem, SCWindow?)] {
+        items.map { item in
+            let center = item.frame.midX
+            let best = windows.min { a, b in
+                abs(a.frame.midX - center) < abs(b.frame.midX - center)
+            }
+            guard let best, abs(best.frame.midX - center) < 12 else { return (item, nil) }
+            return (item, best)
+        }
+    }
+}

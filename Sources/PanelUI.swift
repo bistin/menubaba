@@ -15,6 +15,20 @@ final class PanelModel: ObservableObject {
         items = Scanner.scan()
         query = ""
         selection = 0
+        refreshGlyphs()
+    }
+
+    /// 先用 app 圖示把面板顯示出來，再背景截取選單列上的真圖示換掉，
+    /// 這樣開面板不會被截圖拖慢
+    private func refreshGlyphs() {
+        let snapshot = items
+        Task { @MainActor in
+            let glyphs = await Capture.glyphs(for: snapshot)
+            guard !glyphs.isEmpty else { return }
+            for index in items.indices {
+                if let glyph = glyphs[items[index].id] { items[index].icon = glyph }
+            }
+        }
     }
 
     private func clampSelection() {
@@ -39,8 +53,6 @@ struct PanelView: View {
     @ObservedObject var model: PanelModel
     var onActivate: (MBItem) -> Void
 
-    private let columns = [GridItem(.adaptive(minimum: 92), spacing: 10)]
-
     var body: some View {
         VStack(spacing: 0) {
             searchBar
@@ -48,12 +60,12 @@ struct PanelView: View {
             if model.filtered.isEmpty {
                 emptyState
             } else {
-                grid
+                list
             }
             Divider()
             footer
         }
-        .frame(width: 520)
+        .frame(width: 360)
         .background(.ultraThinMaterial)
     }
 
@@ -62,73 +74,73 @@ struct PanelView: View {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             TextField("搜尋選單列圖示…", text: $model.query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 15))
+                .font(.system(size: 13.5))
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     private var emptyState: some View {
         Text("沒有符合的圖示")
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 34)
+            .padding(.vertical, 22)
     }
 
-    private var grid: some View {
+    private var list: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 10) {
+                LazyVStack(spacing: 1) {
                     ForEach(Array(model.filtered.enumerated()), id: \.element.id) { index, item in
                         Button { onActivate(item) } label: {
-                            cell(item, selected: index == model.selection)
+                            row(item, selected: index == model.selection)
                         }
                         .buttonStyle(.plain)
                         .id(item.id)
                     }
                 }
-                .padding(12)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
             }
-            .frame(maxHeight: 340)
+            .frame(maxHeight: 380)
             .onChange(of: model.selection) { _, _ in
                 if let s = model.selected { proxy.scrollTo(s.id) }
             }
         }
     }
 
-    private func cell(_ item: MBItem, selected: Bool) -> some View {
-        VStack(spacing: 6) {
-            ZStack(alignment: .topTrailing) {
+    private func row(_ item: MBItem, selected: Bool) -> some View {
+        HStack(spacing: 9) {
+            Group {
                 if let icon = item.icon {
-                    Image(nsImage: icon).resizable().frame(width: 38, height: 38)
+                    Image(nsImage: icon).resizable().scaledToFit()
                 } else {
-                    Image(systemName: "app.dashed").resizable().frame(width: 38, height: 38)
+                    Image(systemName: "app.dashed").resizable().scaledToFit()
                         .foregroundStyle(.secondary)
                 }
-                if item.visibility.isHidden {
-                    Text(item.visibility.badge)
-                        .font(.system(size: 11))
-                        .offset(x: 7, y: -5)
-                }
             }
-            .frame(height: 42)
+            .frame(width: 19, height: 19)
 
             Text(item.displayTitle)
-                .font(.system(size: 11))
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(item.visibility.isHidden ? .primary : .secondary)
+                .font(.system(size: 12.5))
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+
+            if item.visibility.isHidden {
+                Text(item.visibility == .notch ? "瀏海後" : "畫面外")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.orange)
+            }
         }
-        .frame(width: 84, height: 76)
-        .padding(4)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(height: 26)
         .background(
-            RoundedRectangle(cornerRadius: 9)
-                .fill(selected ? Color.accentColor.opacity(0.28) : Color.clear)
+            RoundedRectangle(cornerRadius: 5)
+                .fill(selected ? Color.accentColor.opacity(0.85) : Color.clear)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 9)
-                .strokeBorder(selected ? Color.accentColor : Color.clear, lineWidth: 1.5)
-        )
+        .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         .contentShape(Rectangle())
     }
 

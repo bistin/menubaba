@@ -19,8 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyMonitor: Any?
     private var hotKeyRef: EventHotKeyRef?
 
-    /// 面板寬 520、格子最小 92 + 間距 10，實際排出來是 5 欄；上下鍵一次跳一整列
-    private let columnsPerRow = 5
+    /// 清單是一行一個，上下鍵一次移動一格
+    private let rowStep = 1
 
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -29,6 +29,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(togglePanel),
                                                name: .menuPeekHotKey, object: nil)
         if !AXIsProcessTrusted() { promptForAccessibility() }
+
+        // 開發用：驗證能不能截到圖示本身的畫面
+        if CommandLine.arguments.contains("--capturetest") {
+            let granted = CGRequestScreenCaptureAccess()
+            mpLog("capturetest: 螢幕錄製權限 = \(granted)")
+            Task {
+                do {
+                    let windows = try await Capture.statusWindows()
+                    mpLog("capturetest: layer 25 視窗 \(windows.count) 個")
+                    let items = Scanner.scan()
+                    let dir = NSHomeDirectory() + "/menupeek-icons"
+                    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+                    for (item, win) in Capture.match(items: items, windows: windows) {
+                        guard let win else { mpLog("  \(item.displayTitle): 配對不到視窗"); continue }
+                        do {
+                            let image = try await Capture.image(of: win)
+                            let ok = image.size.width > 0
+                            mpLog("  \(item.displayTitle) [\(item.visibility)]: 截到 \(Int(image.size.width))x\(Int(image.size.height)) \(ok ? "✅" : "❌")")
+                            if let tiff = image.tiffRepresentation,
+                               let rep = NSBitmapImageRep(data: tiff),
+                               let png = rep.representation(using: .png, properties: [:]) {
+                                let safe = item.displayTitle.replacingOccurrences(of: "/", with: "_")
+                                try? png.write(to: URL(fileURLWithPath: dir + "/\(safe).png"))
+                            }
+                        } catch {
+                            mpLog("  \(item.displayTitle): 截圖失敗 \(error)")
+                        }
+                    }
+                    mpLog("capturetest: 完成，圖片在 ~/menupeek-icons")
+                } catch {
+                    mpLog("capturetest: 失敗 \(error)")
+                }
+            }
+        }
 
         // 開發用：不經過 UI，直接觸發一個項目，用來隔離「點擊沒傳到」和「AXPress 失效」
         if CommandLine.arguments.contains("--selftest") {
@@ -164,8 +198,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let s = self.model.selected { self.activate(s) };    return nil
             case kVK_LeftArrow:   self.model.move(-1);                  return nil
             case kVK_RightArrow:  self.model.move(1);                   return nil
-            case kVK_UpArrow:     self.model.move(-self.columnsPerRow); return nil
-            case kVK_DownArrow:   self.model.move(self.columnsPerRow);  return nil
+            case kVK_UpArrow:     self.model.move(-self.rowStep); return nil
+            case kVK_DownArrow:   self.model.move(self.rowStep);  return nil
             default:              return event
             }
         }
