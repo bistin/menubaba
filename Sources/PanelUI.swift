@@ -56,7 +56,7 @@ struct PanelView: View {
 
     /// 水平列的寬度跟著項目數量走，盡量一排排得下
     private var stripWidth: CGFloat {
-        min(1000, max(380, CGFloat(model.items.count) * 50 + 26))
+        min(1000, max(380, CGFloat(model.items.count) * 52 + 26))
     }
 
     var body: some View {
@@ -150,14 +150,17 @@ struct PanelView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 30, height: 30)
+            // 只用高度正規化。每個圖示視窗高度都是 33px 但寬度從 24 到 47 不等，
+            // 塞進正方形會讓窄的靠高度撐滿、寬的靠寬度撐滿，光學大小就亂了。
+            // 固定高度、寬度自然變化，才會跟選單列上看到的相對大小一致。
+            .frame(maxWidth: 44, maxHeight: 26)
 
             // 被藏起來的在底下點一顆橘點
             Circle()
                 .fill(item.visibility.isHidden ? Color.orange : Color.clear)
                 .frame(width: 5, height: 5)
         }
-        .frame(width: 46, height: 48)
+        .frame(width: 48, height: 46)
         .background(
             RoundedRectangle(cornerRadius: 9)
                 .fill(selected ? Color.accentColor.opacity(0.85) : Color.clear)
@@ -176,7 +179,7 @@ struct PanelView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 19, height: 19)
+            .frame(maxWidth: 26, maxHeight: 17)
 
             Text(item.displayTitle)
                 .font(.system(size: 12.5))

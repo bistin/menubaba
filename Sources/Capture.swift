@@ -34,10 +34,44 @@ enum Capture {
             guard image.size.height > 0, image.size.width / image.size.height <= 2.5 else { continue }
             // 選單列圖示幾乎都是單色 template，標成 template 才能跟著淺色/深色模式變色，
             // 否則白色圖示在淺色面板上會整個看不見
-            image.isTemplate = true
-            result[item.id] = image
+            let trimmed = trimTransparent(image)
+            trimmed.isTemplate = true
+            result[item.id] = trimmed
         }
         return result
+    }
+
+    /// 截到的是整個 33px 高的視窗，圖案只佔中間一小塊，上下都是透明留白。
+    /// 不裁掉的話縮進面板會比 app 圖示小一大截，看起來像壞掉。
+    private static func trimTransparent(_ image: NSImage) -> NSImage {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let data = rep.bitmapData,
+              rep.samplesPerPixel == 4 else { return image }
+
+        let width = rep.pixelsWide, height = rep.pixelsHigh
+        let rowBytes = rep.bytesPerRow, spp = rep.samplesPerPixel
+        var minX = width, minY = height, maxX = -1, maxY = -1
+
+        for y in 0..<height {
+            let row = data + y * rowBytes
+            for x in 0..<width where row[x * spp + 3] > 16 {   // alpha 門檻，濾掉抗鋸齒邊緣
+                if x < minX { minX = x }
+                if x > maxX { maxX = x }
+                if y < minY { minY = y }
+                if y > maxY { maxY = y }
+            }
+        }
+        guard maxX >= minX, maxY >= minY,
+              let cropped = rep.cgImage?.cropping(to: CGRect(x: minX, y: minY,
+                                                             width: maxX - minX + 1,
+                                                             height: maxY - minY + 1))
+        else { return image }
+
+        let scale = max(1, CGFloat(rep.pixelsWide) / max(image.size.width, 1))
+        return NSImage(cgImage: cropped,
+                       size: NSSize(width: CGFloat(cropped.width) / scale,
+                                    height: CGFloat(cropped.height) / scale))
     }
 
     /// 把 AX 項目對應到它的視窗：靠水平中心點最接近來配對

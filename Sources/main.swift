@@ -126,6 +126,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         layoutItem.submenu = layoutMenu
         menu.addItem(layoutItem)
 
+        let login = NSMenuItem(title: "開機時自動啟動", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        login.target = self
+        login.state = Prefs.launchAtLogin ? .on : .off
+        menu.addItem(login)
+
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "結束 MenuPeek", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
@@ -134,6 +139,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)
         statusItem?.menu = nil
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        Prefs.launchAtLogin.toggle()
+        mpLog("開機自動啟動 -> \(Prefs.launchAtLogin)")
     }
 
     @objc private func selectLayout(_ sender: NSMenuItem) {
@@ -163,6 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 面板
 
     @objc private func togglePanel() {
+        mpLog("togglePanel 被呼叫 (目前 visible=\(panel?.isVisible ?? false))")
         if let p = panel, p.isVisible { closePanel() } else { openPanel() }
     }
 
@@ -205,6 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func closePanel() {
+        mpLog("closePanel")
         if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
         panel?.orderOut(nil)
         panel = nil

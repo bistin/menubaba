@@ -22,7 +22,7 @@ PLIST
 swiftc -O -target arm64-apple-macosx14.0 \
   -o "$APP/Contents/MacOS/MenuPeek" \
   "$ROOT/Sources/Log.swift" "$ROOT/Sources/Prefs.swift" "$ROOT/Sources/Capture.swift" "$ROOT/Sources/Scanner.swift" "$ROOT/Sources/PanelUI.swift" "$ROOT/Sources/main.swift" \
-  -framework Cocoa -framework SwiftUI -framework Carbon -framework ScreenCaptureKit
+  -framework Cocoa -framework SwiftUI -framework Carbon -framework ScreenCaptureKit -framework ServiceManagement
 
 codesign --force --sign "MenuPeek Dev" --identifier com.bistin.MenuPeek "$APP"
 echo "✅ 建置完成: $APP"
