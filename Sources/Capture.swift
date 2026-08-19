@@ -16,6 +16,13 @@ enum Capture {
 
     /// 啟動時先在背景把圖示截好放進快取，這樣第一次開面板就不會跳
     static func prewarm() {
+        // 只用 Preflight 檢查的話，這個 app 從來沒「請求」過螢幕錄製權限，
+        // 就不會出現在系統設定的清單裡，使用者連手動打開都沒得打開。
+        // 沒授權過就主動請求一次（已授權的話這個呼叫不會跳任何東西）。
+        if !CGPreflightScreenCaptureAccess() {
+            let granted = CGRequestScreenCaptureAccess()
+            mpLog("請求螢幕錄製權限 -> \(granted)")
+        }
         Task { @MainActor in
             let items = Scanner.scan()
             let glyphs = await glyphs(for: items)
