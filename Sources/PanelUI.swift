@@ -4,6 +4,7 @@ final class PanelModel: ObservableObject {
     @Published var items: [MBItem] = []
     @Published var query: String = "" { didSet { clampSelection() } }
     @Published var selection: Int = 0
+    @Published var layout: PanelLayout = Prefs.layout
 
     var filtered: [MBItem] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -53,19 +54,26 @@ struct PanelView: View {
     @ObservedObject var model: PanelModel
     var onActivate: (MBItem) -> Void
 
+    /// 水平列的寬度跟著項目數量走，盡量一排排得下
+    private var stripWidth: CGFloat {
+        min(1000, max(380, CGFloat(model.items.count) * 50 + 26))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             searchBar
             Divider()
             if model.filtered.isEmpty {
                 emptyState
+            } else if model.layout == .strip {
+                strip
             } else {
                 list
             }
             Divider()
             footer
         }
-        .frame(width: 360)
+        .frame(width: model.layout == .strip ? stripWidth : 360)
         .background(.ultraThinMaterial)
     }
 
@@ -109,6 +117,55 @@ struct PanelView: View {
         }
     }
 
+    /// 水平列：像選單列本身那樣橫排一條
+    private var strip: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 4) {
+                    ForEach(Array(model.filtered.enumerated()), id: \.element.id) { index, item in
+                        Button { onActivate(item) } label: {
+                            tile(item, selected: index == model.selection)
+                        }
+                        .buttonStyle(.plain)
+                        .id(item.id)
+                    }
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 7)
+            }
+            .frame(height: 64)
+            .onChange(of: model.selection) { _, _ in
+                if let s = model.selected { proxy.scrollTo(s.id) }
+            }
+        }
+    }
+
+    private func tile(_ item: MBItem, selected: Bool) -> some View {
+        VStack(spacing: 3) {
+            Group {
+                if let icon = item.icon {
+                    Image(nsImage: icon).resizable().scaledToFit()
+                } else {
+                    Image(systemName: "app.dashed").resizable().scaledToFit()
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 30, height: 30)
+
+            // 被藏起來的在底下點一顆橘點
+            Circle()
+                .fill(item.visibility.isHidden ? Color.orange : Color.clear)
+                .frame(width: 5, height: 5)
+        }
+        .frame(width: 46, height: 48)
+        .background(
+            RoundedRectangle(cornerRadius: 9)
+                .fill(selected ? Color.accentColor.opacity(0.85) : Color.clear)
+        )
+        .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+        .contentShape(Rectangle())
+    }
+
     private func row(_ item: MBItem, selected: Bool) -> some View {
         HStack(spacing: 9) {
             Group {
@@ -146,17 +203,26 @@ struct PanelView: View {
 
     private var footer: some View {
         let hidden = model.items.filter { $0.visibility.isHidden }.count
-        return HStack(spacing: 10) {
-            Text("\(model.items.count) 個圖示")
-            if hidden > 0 {
-                Text("· \(hidden) 個你原本看不到").foregroundStyle(.orange)
+        return HStack(spacing: 8) {
+            if model.layout == .strip, let sel = model.selected {
+                Text(sel.displayTitle).font(.system(size: 11, weight: .medium)).lineLimit(1)
+                if sel.visibility.isHidden {
+                    Text(sel.visibility == .notch ? "瀏海後" : "畫面外")
+                        .font(.system(size: 10)).foregroundStyle(.orange)
+                }
+            } else {
+                Text("\(model.items.count) 個圖示").font(.system(size: 10))
+                if hidden > 0 {
+                    Text("· \(hidden) 個你原本看不到")
+                        .font(.system(size: 10)).foregroundStyle(.orange)
+                }
             }
-            Spacer()
-            Text("↑↓←→ 選擇   ⏎ 開啟   esc 關閉")
+            Spacer(minLength: 8)
+            Text(model.layout == .strip ? "←→ 選擇  ⏎ 開啟  esc 關閉" : "↑↓ 選擇  ⏎ 開啟  esc 關閉")
+                .font(.system(size: 10))
         }
-        .font(.system(size: 10))
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
 }

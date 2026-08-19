@@ -19,9 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyMonitor: Any?
     private var hotKeyRef: EventHotKeyRef?
 
-    /// 清單是一行一個，上下鍵一次移動一格
-    private let rowStep = 1
-
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.setActivationPolicy(.accessory)
         setupStatusItem()
@@ -109,18 +106,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func statusItemClicked() {
-        if NSApp.currentEvent?.type == .rightMouseUp {
-            let menu = NSMenu()
-            menu.addItem(withTitle: "顯示面板  ⌃⌥⌘M", action: #selector(togglePanel), keyEquivalent: "")
-            menu.addItem(.separator())
-            menu.addItem(withTitle: "結束 MenuPeek", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-            menu.items.forEach { $0.target = $0.action == #selector(togglePanel) ? self : NSApp }
-            statusItem?.menu = menu
-            statusItem?.button?.performClick(nil)
-            statusItem?.menu = nil
-        } else {
-            togglePanel()
+        guard NSApp.currentEvent?.type == .rightMouseUp else { togglePanel(); return }
+
+        let menu = NSMenu()
+
+        let show = NSMenuItem(title: "顯示面板  ⌃⌥⌘M", action: #selector(togglePanel), keyEquivalent: "")
+        show.target = self
+        menu.addItem(show)
+
+        let layoutItem = NSMenuItem(title: "版面", action: nil, keyEquivalent: "")
+        let layoutMenu = NSMenu()
+        for layout in PanelLayout.allCases {
+            let item = NSMenuItem(title: layout.label, action: #selector(selectLayout(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = layout.rawValue
+            item.state = Prefs.layout == layout ? .on : .off
+            layoutMenu.addItem(item)
         }
+        layoutItem.submenu = layoutMenu
+        menu.addItem(layoutItem)
+
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: "結束 MenuPeek", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quit.target = NSApp
+        menu.addItem(quit)
+
+        statusItem?.menu = menu
+        statusItem?.button?.performClick(nil)
+        statusItem?.menu = nil
+    }
+
+    @objc private func selectLayout(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let layout = PanelLayout(rawValue: raw) else { return }
+        Prefs.layout = layout
+        model.layout = layout
+        closePanel()   // 兩種版面寬度不同，關掉重開才會套用
     }
 
     // MARK: - 全域熱鍵 ⌃⌥⌘M
@@ -196,10 +217,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case kVK_Escape:      self.closePanel();                    return nil
             case kVK_Return, kVK_ANSI_KeypadEnter:
                 if let s = self.model.selected { self.activate(s) };    return nil
-            case kVK_LeftArrow:   self.model.move(-1);                  return nil
-            case kVK_RightArrow:  self.model.move(1);                   return nil
-            case kVK_UpArrow:     self.model.move(-self.rowStep); return nil
-            case kVK_DownArrow:   self.model.move(self.rowStep);  return nil
+            case kVK_LeftArrow, kVK_UpArrow:     self.model.move(-1);   return nil
+            case kVK_RightArrow, kVK_DownArrow:  self.model.move(1);    return nil
             default:              return event
             }
         }
