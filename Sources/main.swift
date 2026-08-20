@@ -47,15 +47,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = "MenuBaba"
-        // 選單列慣例：「<」代表「這裡還有東西，點開來看」
-        let symbol = NSImage.SymbolConfiguration(pointSize: 17, weight: .bold)
-        item.button?.image = NSImage(systemSymbolName: "chevron.left",
-                                     accessibilityDescription: "MenuBaba")?
-            .withSymbolConfiguration(symbol)
+        statusItem = item
+        updateStatusIcon(expanded: false)
         item.button?.target = self
         item.button?.action = #selector(statusItemClicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        statusItem = item
+    }
+
+    /// 圖示同時當狀態指示：收合時「<」（這裡還有東西，點開來看），
+    /// 展開時「⌄」（面板正開著，再點一下收起來）
+    private func updateStatusIcon(expanded: Bool) {
+        let config = NSImage.SymbolConfiguration(pointSize: 17, weight: .bold)
+        let name = expanded ? "chevron.down" : "chevron.left"
+        statusItem?.button?.image = NSImage(systemSymbolName: name,
+                                            accessibilityDescription: "MenuBaba")?
+            .withSymbolConfiguration(config)
     }
 
     @objc private func statusItemClicked() {
@@ -165,11 +171,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         p.makeKeyAndOrderFront(nil)
         installKeyMonitor()
+        updateStatusIcon(expanded: true)
         mpLog("panel frame=\(p.frame) visible=\(p.isVisible) items=\(model.items.count) menuBarVisible=\(NSMenu.menuBarVisible())")
     }
 
     private func closePanel() {
         mpLog("closePanel")
+        updateStatusIcon(expanded: false)
         if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
         panel?.orderOut(nil)
         panel = nil
