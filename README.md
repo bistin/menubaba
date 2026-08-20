@@ -36,7 +36,7 @@ MenuBaba 就是那個缺掉的介面。
 需要 macOS 14 以上。
 
 ```sh
-git clone https://github.com/<你的帳號>/menubaba.git
+git clone https://github.com/bistin/menubaba.git
 cd menubaba
 ./build.sh
 open ~/Applications/MenuBaba.app
