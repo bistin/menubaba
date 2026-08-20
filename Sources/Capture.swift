@@ -15,6 +15,10 @@ enum Capture {
     static func remember(_ image: NSImage, for item: MBItem) { cache[key(item)] = image }
 
     /// 啟動時先在背景把圖示截好放進快取，這樣第一次開面板就不會跳
+    /// 啟動後稍等再截。剛啟動時有些狀態列視窗還沒把圖示畫上去，
+    /// 太早截會拿到空的或只有底色的畫面，然後被快取起來。
+    static let prewarmDelay: TimeInterval = 1.5
+
     static func prewarm() {
         // 只用 Preflight 檢查的話，這個 app 從來沒「請求」過螢幕錄製權限，
         // 就不會出現在系統設定的清單裡，使用者連手動打開都沒得打開。
@@ -24,6 +28,7 @@ enum Capture {
             mpLog("請求螢幕錄製權限 -> \(granted)")
         }
         Task { @MainActor in
+            try? await Task.sleep(for: .seconds(prewarmDelay))
             let items = Scanner.scan()
             let glyphs = await glyphs(for: items)
             for item in items {
@@ -63,6 +68,11 @@ enum Capture {
             // 選單列圖示幾乎都是單色 template，標成 template 才能跟著淺色/深色模式變色，
             // 否則白色圖示在淺色面板上會整個看不見
             let trimmed = trimTransparent(image)
+            // 內容佔滿整個視窗高度的不是圖示，而是「被點選時的高亮底色」，
+            // 或 DynamicIsland 那種橫跨整條選單列的特殊項目。
+            // 實測正常圖示只佔 24~51%，高亮底色接近 100%，70% 是安全的分界。
+            guard image.size.height > 0,
+                  trimmed.size.height / image.size.height < 0.7 else { continue }
             trimmed.isTemplate = true
             result[item.id] = trimmed
         }
