@@ -112,14 +112,20 @@ enum Capture {
                                     height: CGFloat(cropped.height) / scale))
     }
 
-    /// 把 AX 項目對應到它的視窗：靠水平中心點最接近來配對
+    /// 把 AX 項目對應到它的視窗：取真的把項目中心框住的那個。
+    ///
+    /// 不能只比水平中心誰近。同一層（25）還混著第三方 app 留下的隱形大視窗
+    /// （實測 DisplayLink Manager 有一個 731x460、onScreen=false 的），
+    /// 這種視窗的中心可能剛好比正主近半個點，就把圖示搶走，
+    /// 然後又因為佔滿高度被後面的守門擋掉，該項目就只剩 app 圖示可用。
+    /// 選單列項目的視窗一定罩住自己那塊，用「包含」判斷不會被寬度誤導。
     static func match(items: [MBItem], windows: [SCWindow]) -> [(MBItem, SCWindow?)] {
         items.map { item in
-            let center = item.frame.midX
-            let best = windows.min { a, b in
-                abs(a.frame.midX - center) < abs(b.frame.midX - center)
-            }
-            guard let best, abs(best.frame.midX - center) < 12 else { return (item, nil) }
+            let center = CGPoint(x: item.frame.midX, y: item.frame.midY)
+            // 萬一真有重疊，還是取水平中心最接近的那個
+            let best = windows
+                .filter { $0.frame.contains(center) }
+                .min { abs($0.frame.midX - center.x) < abs($1.frame.midX - center.x) }
             return (item, best)
         }
     }
