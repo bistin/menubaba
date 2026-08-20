@@ -42,10 +42,12 @@ cd menubaba
 open ~/Applications/MenuBaba.app
 ```
 
-`build.sh` 會編譯、簽章，並安裝到 `~/Applications/MenuBaba.app`。
+`build.sh` 會編譯、簽章，並安裝到 `~/Applications/MenuBaba.app`。目標架構跟著
+機器走，Intel 和 Apple silicon 都能編。
 
-簽章用的是本機自簽憑證。**ad-hoc 簽章不能用**：每次重新編譯 cdhash 都會變，
-TCC 會判定成不同的 app，輔助使用權限就掉了。建立一張自己的憑證：
+簽章身分是自動找的，找不到就退回 ad-hoc 簽章 —— app 一樣能跑，但**每次重新
+編譯 cdhash 都會變，TCC 會判定成不同的 app，兩個權限都要重新授權一次**。
+會常改程式的話，先建一張自己的憑證：
 
 ```sh
 openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
@@ -59,7 +61,11 @@ security add-trusted-cert -r trustRoot -p codeSign \
   -k ~/Library/Keychains/login.keychain-db cert.pem
 ```
 
-然後把 `build.sh` 裡的簽章身分改成這張憑證的名字。
+`build.sh` 會自動抓名為 `MenuBaba Dev` 的憑證。想指定別張：
+
+```sh
+SIGN_IDENTITY="憑證名稱" ./build.sh
+```
 
 ## 權限
 
