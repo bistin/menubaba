@@ -1,7 +1,11 @@
 import Foundation
 
-/// 開發期的除錯記錄，寫到 ~/menubaba-debug.log
+/// 除錯記錄，寫到 ~/menubaba-debug.log。
+/// 預設關閉，加上 --debug 參數啟動才會寫，否則這個檔案會無止境長大。
+private let loggingEnabled = CommandLine.arguments.contains("--debug")
+
 func mpLog(_ message: String) {
+    guard loggingEnabled else { return }
     let line = "[\(Date().formatted(date: .omitted, time: .standard))] \(message)\n"
     let path = NSHomeDirectory() + "/menubaba-debug.log"
     guard let data = line.data(using: .utf8) else { return }
