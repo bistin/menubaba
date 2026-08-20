@@ -47,8 +47,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = "MenuBaba"
-        item.button?.image = NSImage(systemSymbolName: "rectangle.grid.2x2",
-                                     accessibilityDescription: "MenuBaba")
+        // 選單列慣例：「<」代表「這裡還有東西，點開來看」
+        let symbol = NSImage.SymbolConfiguration(pointSize: 17, weight: .bold)
+        item.button?.image = NSImage(systemSymbolName: "chevron.left",
+                                     accessibilityDescription: "MenuBaba")?
+            .withSymbolConfiguration(symbol)
         item.button?.target = self
         item.button?.action = #selector(statusItemClicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
