@@ -36,7 +36,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 選單列圖示
 
     private func setupStatusItem() {
+        // 新加入的狀態項目預設排在最左邊，選單列一擠就被推出可見範圍
+        // （這台機器上 DynamicIsland 一個項目就佔掉 731px）。
+        // 指定一個靠右的偏好位置；數字越小越靠右。設了 autosaveName 之後，
+        // 使用者自己 ⌘ 拖曳調整的位置也會被記住。
+        let positionKey = "NSStatusItem Preferred Position MenuBaba"
+        if UserDefaults.standard.object(forKey: positionKey) == nil {
+            UserDefaults.standard.set(60, forKey: positionKey)
+        }
+
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.autosaveName = "MenuBaba"
         item.button?.image = NSImage(systemSymbolName: "rectangle.grid.2x2",
                                      accessibilityDescription: "MenuBaba")
         item.button?.target = self

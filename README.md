@@ -45,6 +45,11 @@ macOS 會把放不下的圖示直接藏起來，而且沒有任何介面可以�
 - **截到的圖示要標成 template image**，否則白色圖示在淺色面板上會整個看不見。
   另外時鐘那種是一長條文字（165x33），縮進小方格會糊成一團，長寬比超過 2.5 的就不採用。
 
+- **新的狀態項目預設排在最左邊**，選單列一擠就被推到瀏海左邊、app 選單的地盤，
+  系統不會畫它，看起來就像 app 壞掉沒有圖示。要指定 `NSStatusItem Preferred Position`
+  （數字越小越靠右），並設 `autosaveName` 讓使用者 ⌘ 拖曳後的位置能記住。
+  順帶一提 autosaveName 也會變成該視窗在 CGWindowList 裡的名稱，debug 時好認很多。
+
 - **App 不能放在 Downloads。** 帶著 quarantine 從那裡執行會觸發 App Translocation，
   每次啟動路徑都不同，TCC 權限永遠授不牢。
 
