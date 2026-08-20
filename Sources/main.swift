@@ -28,6 +28,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !AXIsProcessTrusted() { promptForAccessibility() }
         Capture.prewarm()
 
+        // 開發用：自動驗證「點下去有沒有真的打開東西」，不必靠人肉回報
+        if CommandLine.arguments.contains("--clicktest") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                let items = Scanner.scan()
+                let targets = ["Clipipi"]
+                func onscreen() -> Set<Int> {
+                    let all = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+                    return Set(all.compactMap { w -> Int? in
+                        guard let n = w[kCGWindowNumber as String] as? Int,
+                              let bd = w[kCGWindowBounds as String],
+                              let r = CGRect(dictionaryRepresentation: bd as! CFDictionary),
+                              r.width > 60, r.height > 40 else { return nil }
+                        return n
+                    })
+                }
+                func esc() {
+                    if let src = CGEventSource(stateID: .hidSystemState) {
+                        CGEvent(keyboardEventSource: src, virtualKey: 53, keyDown: true)?.post(tap: .cghidEventTap)
+                        CGEvent(keyboardEventSource: src, virtualKey: 53, keyDown: false)?.post(tap: .cghidEventTap)
+                    }
+                }
+                var delay = 0.0
+                for name in targets {
+                    guard let target = items.first(where: { $0.displayTitle == name }) else {
+                        mpLog("clicktest: 找不到 \(name)"); continue
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        let before = onscreen()
+                        mpLog("clicktest ── \(name) 觸發前畫面上有 \(before.count) 個視窗")
+                        Scanner.activate(target)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                            let after = onscreen()
+                            let appeared = after.subtracting(before)
+                            mpLog("clicktest ── \(name): 新出現 \(appeared.count) 個視窗 \(appeared.isEmpty ? "❌ 沒反應" : "✅ 有東西打開")")
+                            esc()
+                        }
+                    }
+                    delay += 5.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay + 1) { mpLog("clicktest: 結束") }
+            }
+        }
+
         // 開發用：驗證能不能截到圖示本身的畫面
         if CommandLine.arguments.contains("--capturetest") {
             let granted = CGRequestScreenCaptureAccess()
@@ -237,10 +280,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 先關面板再觸發，否則選單會開在面板後面
+    /// 先關面板再觸發，否則選單會開在面板後面。
+    /// 而且一定要讓出焦點：開面板時呼叫過 NSApp.activate，關掉面板後 MenuBaba
+    /// 仍是最前景的 app，對方的浮動面板（NSPopover 那類）一出現就會因為不是
+    /// 焦點而立刻收掉，看起來就像「閃一下就不見」。
     private func activate(_ item: MBItem) {
         closePanel()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+        NSApp.deactivate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             Scanner.activate(item)
         }
     }

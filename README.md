@@ -25,10 +25,17 @@ macOS 會把放不下的圖示直接藏起來，而且沒有任何介面可以�
   而且 macOS 26 上所有圖示的 owner 都顯示 "Control Center"，完全分不出誰是誰。
   改用 `AXExtrasMenuBar` 才能拿到真正的擁有者。
 
-- **`AXPress` 的回傳碼是假訊號。**
-  回 `cannotComplete(-25204)` 其實代表選單「有」打開——因為選單進入 modal tracking
-  loop 把 AX 呼叫卡住了。反倒是回 `success(0)` 可能什麼都沒發生（ChatGPT、Clipipi
-  那種自繪面板）。所以只有 `success` 時才需要確認有沒有真的長出 `AXMenu`，沒有就補一次模擬點擊。
+- **`AXPress` 一下就夠了，不要自作聰明加後備方案。**
+  這裡踩過一個很花時間的坑：開自繪面板的圖示（ChatGPT、Clipipi、控制中心那類）
+  按下去之後**不會**產生 `AXMenu` 子元素，因為它們開的是 popover 不是選單。
+  我一度把「沒有 AXMenu」當成「AXPress 失敗」，於是補送一次模擬點擊——
+  結果那一下等於在同一顆圖示上再點一次，把剛打開的面板關掉了。
+  症狀是「點了閃一下就消失」，看起來像 AXPress 無效，其實是後備方案自己搞的。
+
+- **`AXPress` 的回傳碼不能用來判斷成敗。**
+  回 `cannotComplete(-25204)` 可能是選單開了之後 modal tracking loop 卡住呼叫，
+  也可能只是撞到 `AXUIElementSetMessagingTimeout` 設的上限，兩者共用同一個錯誤碼。
+  結論是不要根據回傳碼做任何後續動作。
 
 - **`AXPress` 一定要在背景執行緒呼叫。** 跑在主執行緒上會被 modal tracking loop
   卡到選單關閉為止，整個 app 凍住，連熱鍵都沒反應。

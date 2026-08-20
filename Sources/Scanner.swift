@@ -197,7 +197,6 @@ enum Scanner {
     static func activate(_ item: MBItem) {
         mpLog("activate: \(item.appName) frame=\(item.frame) vis=\(item.visibility)")
         let element = item.element
-        let frame = item.frame
 
         // 一定要在背景執行緒。選單被按開之後會進入 modal tracking loop，
         // AXUIElementPerformAction 會一路卡到選單關閉才返回；跑在主執行緒上
@@ -206,33 +205,6 @@ enum Scanner {
             AXUIElementSetMessagingTimeout(element, 2.0)
             let err = AXUIElementPerformAction(element, kAXPressAction as CFString)
             mpLog("  AXPress -> \(err.rawValue)")
-
-            // 回傳碼在這裡是假訊號：cannotComplete 代表選單其實開了，
-            // 反倒是 success 可能什麼都沒發生（例如 ChatGPT 那種自繪面板）。
-            guard err == .success else { return }
-
-            Thread.sleep(forTimeInterval: 0.25)
-            var kids: CFTypeRef?
-            var hasMenu = false
-            if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &kids) == .success,
-               let arr = kids as? [AXUIElement] {
-                hasMenu = arr.contains { axString($0, kAXRoleAttribute) == "AXMenu" }
-            }
-            mpLog("  hasMenu=\(hasMenu)")
-            if !hasMenu {
-                mpLog("  -> 改用模擬點擊")
-                synthesizeClick(at: frame)
-            }
         }
-    }
-
-    /// AXPress 無效時的退路：直接在圖示座標送一組滑鼠事件
-    private static func synthesizeClick(at frame: CGRect) {
-        let p = CGPoint(x: frame.midX, y: frame.midY)
-        guard let src = CGEventSource(stateID: .hidSystemState) else { return }
-        CGEvent(mouseEventSource: src, mouseType: .leftMouseDown, mouseCursorPosition: p, mouseButton: .left)?
-            .post(tap: .cghidEventTap)
-        CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: p, mouseButton: .left)?
-            .post(tap: .cghidEventTap)
     }
 }
