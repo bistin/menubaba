@@ -45,7 +45,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             UserDefaults.standard.set(60, forKey: positionKey)
         }
 
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // 固定長度。收合「<」和展開「⌄」的字符寬度差了快一倍，用 variableLength
+        // 的話每切換一次，左邊整排圖示就跟著位移一次。
+        let item = NSStatusBar.system.statusItem(withLength: Self.statusItemLength)
         item.autosaveName = "MenuBaba"
         statusItem = item
         updateStatusIcon(expanded: false)
@@ -54,14 +56,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     }
 
+    private static let statusItemLength: CGFloat = 26
+    private static let statusIconCanvas = NSSize(width: 20, height: 20)
+
     /// 圖示同時當狀態指示：收合時「<」（這裡還有東西，點開來看），
     /// 展開時「⌄」（面板正開著，再點一下收起來）
     private func updateStatusIcon(expanded: Bool) {
         let config = NSImage.SymbolConfiguration(pointSize: 17, weight: .bold)
         let name = expanded ? "chevron.down" : "chevron.left"
-        statusItem?.button?.image = NSImage(systemSymbolName: name,
-                                            accessibilityDescription: "MenuBaba")?
-            .withSymbolConfiguration(config)
+        guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: "MenuBaba")?
+            .withSymbolConfiguration(config) else { return }
+
+        // 兩個字符的長寬差很多，各自畫進同一塊畫布置中，看起來才不會忽左忽右
+        let canvas = Self.statusIconCanvas
+        let image = NSImage(size: canvas, flipped: false) { _ in
+            let size = symbol.size
+            symbol.draw(in: NSRect(x: (canvas.width - size.width) / 2,
+                                   y: (canvas.height - size.height) / 2,
+                                   width: size.width, height: size.height))
+            return true
+        }
+        image.isTemplate = true   // 畫進新圖之後 template 屬性不會跟著過來，要自己標
+        statusItem?.button?.image = image
     }
 
     @objc private func statusItemClicked() {
