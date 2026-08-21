@@ -66,12 +66,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func statusItemClicked() {
         guard NSApp.currentEvent?.type == .rightMouseUp else { togglePanel(); return }
+        let menu = buildMenu(includeShowPanel: true)
+        statusItem?.menu = menu
+        statusItem?.button?.performClick(nil)
+        statusItem?.menu = nil
+    }
 
+    /// 從面板右下角的齒輪彈出同一份選單。
+    /// MenuBaba 自己的選單列圖示也可能被第三方管理器藏起來，
+    /// 那時右鍵選單根本按不到，面板就是唯一進得去的入口。
+    private func showSettingsMenu() {
+        guard let view = panel?.contentView else { return }
+        let menu = buildMenu(includeShowPanel: false)
+        menu.popUp(positioning: nil,
+                   at: NSPoint(x: view.bounds.maxX - 150, y: view.bounds.minY + 6),
+                   in: view)
+    }
+
+    private func buildMenu(includeShowPanel: Bool) -> NSMenu {
         let menu = NSMenu()
+        menu.autoenablesItems = false   // 不然自動驗證會把「顯示名稱」的停用蓋掉
 
-        let show = NSMenuItem(title: "顯示面板  ⌃⌥⌘M", action: #selector(togglePanel), keyEquivalent: "")
-        show.target = self
-        menu.addItem(show)
+        if includeShowPanel {
+            let show = NSMenuItem(title: "顯示面板  ⌃⌥⌘M", action: #selector(togglePanel), keyEquivalent: "")
+            show.target = self
+            menu.addItem(show)
+        }
 
         let layoutItem = NSMenuItem(title: "版面", action: nil, keyEquivalent: "")
         let layoutMenu = NSMenu()
@@ -85,6 +105,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         layoutItem.submenu = layoutMenu
         menu.addItem(layoutItem)
 
+        let names = NSMenuItem(title: "顯示名稱", action: #selector(toggleShowNames), keyEquivalent: "")
+        names.target = self
+        names.state = Prefs.showNames ? .on : .off
+        // 垂直清單本來就有名稱，開關只對水平列有意義
+        names.isEnabled = Prefs.layout == .strip
+        menu.addItem(names)
+
         let login = NSMenuItem(title: "開機時自動啟動", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         login.target = self
         login.state = Prefs.launchAtLogin ? .on : .off
@@ -95,14 +122,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quit.target = NSApp
         menu.addItem(quit)
 
-        statusItem?.menu = menu
-        statusItem?.button?.performClick(nil)
-        statusItem?.menu = nil
+        return menu
     }
 
     @objc private func toggleLaunchAtLogin() {
         Prefs.launchAtLogin.toggle()
         mpLog("開機自動啟動 -> \(Prefs.launchAtLogin)")
+    }
+
+    @objc private func toggleShowNames() {
+        Prefs.showNames.toggle()
+        model.showNames = Prefs.showNames
+        closePanel()   // 格子寬度變了，關掉重開才會重新排版
+        mpLog("顯示名稱 -> \(Prefs.showNames)")
     }
 
     @objc private func selectLayout(_ sender: NSMenuItem) {
@@ -139,10 +171,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func openPanel() {
         model.reload()
 
-        let view = PanelView(model: model) { [weak self] item in
-            mpLog("tap 收到: \(item.appName)")
-            self?.activate(item)
-        }
+        let view = PanelView(model: model,
+                             onActivate: { [weak self] item in
+                                 mpLog("tap 收到: \(item.appName)")
+                                 self?.activate(item)
+                             },
+                             onSettings: { [weak self] in self?.showSettingsMenu() })
         let hosting = NSHostingView(rootView: view)
         hosting.layout()
 

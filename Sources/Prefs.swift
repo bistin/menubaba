@@ -15,6 +15,7 @@ enum PanelLayout: String, CaseIterable {
 
 enum Prefs {
     private static let layoutKey = "PanelLayout"
+    private static let showNamesKey = "ShowNames"
 
     /// 開機自動啟動。狀態由系統保管（SMAppService），不存在 UserDefaults。
     /// 第一次註冊時 macOS 會要求使用者在「一般 → 登入項目」批准。
@@ -33,5 +34,11 @@ enum Prefs {
     static var layout: PanelLayout {
         get { PanelLayout(rawValue: UserDefaults.standard.string(forKey: layoutKey) ?? "") ?? .strip }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: layoutKey) }
+    }
+
+    /// 水平列要不要在圖示底下標名稱。垂直清單本來就有名稱，這個開關只影響水平列。
+    static var showNames: Bool {
+        get { UserDefaults.standard.bool(forKey: showNamesKey) }
+        set { UserDefaults.standard.set(newValue, forKey: showNamesKey) }
     }
 }

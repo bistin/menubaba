@@ -5,6 +5,7 @@ final class PanelModel: ObservableObject {
     @Published var query: String = "" { didSet { clampSelection() } }
     @Published var selection: Int = 0
     @Published var layout: PanelLayout = Prefs.layout
+    @Published var showNames: Bool = Prefs.showNames
 
     var filtered: [MBItem] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -55,10 +56,17 @@ final class PanelModel: ObservableObject {
 struct PanelView: View {
     @ObservedObject var model: PanelModel
     var onActivate: (MBItem) -> Void
+    /// 面板本身就是設定入口。MenuBaba 自己的選單列圖示也可能被擠到看不見，
+    /// 那時右鍵選單就完全按不到了，所以面板上一定要有一個進得去的地方。
+    var onSettings: () -> Void
+
+    /// 標名稱的時候格子要放寬，字才不會全部被截成「Cont…」
+    private var tileWidth: CGFloat { model.showNames ? 64 : 48 }
+    private var tileHeight: CGFloat { model.showNames ? 60 : 46 }
 
     /// 水平列的寬度跟著項目數量走，盡量一排排得下
     private var stripWidth: CGFloat {
-        min(1000, max(380, CGFloat(model.items.count) * 52 + 26))
+        min(1000, max(380, CGFloat(model.items.count) * (tileWidth + 4) + 26))
     }
 
     var body: some View {
@@ -135,7 +143,7 @@ struct PanelView: View {
                 .padding(.horizontal, 7)
                 .padding(.vertical, 7)
             }
-            .frame(height: 64)
+            .frame(height: tileHeight + 18)
             .onChange(of: model.selection) { _, _ in
                 if let s = model.selected { proxy.scrollTo(s.id) }
             }
@@ -161,8 +169,16 @@ struct PanelView: View {
             Circle()
                 .fill(item.visibility.isHidden ? Color.orange : Color.clear)
                 .frame(width: 5, height: 5)
+
+            if model.showNames {
+                Text(item.displayTitle)
+                    .font(.system(size: 9))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(width: tileWidth - 6)
+            }
         }
-        .frame(width: 48, height: 46)
+        .frame(width: tileWidth, height: tileHeight)
         .background(
             RoundedRectangle(cornerRadius: 9)
                 .fill(selected ? Color.accentColor.opacity(0.85) : Color.clear)
@@ -225,6 +241,13 @@ struct PanelView: View {
             Spacer(minLength: 8)
             Text(model.layout == .strip ? "←→ 選擇  ⏎ 開啟  esc 關閉" : "↑↓ 選擇  ⏎ 開啟  esc 關閉")
                 .font(.system(size: 10))
+            Button(action: onSettings) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 11.5))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("MenuBaba 設定")
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
