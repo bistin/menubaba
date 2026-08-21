@@ -61,10 +61,13 @@ enum Capture {
         guard let windows = try? await statusWindows() else { return [:] }
         var result: [Int: NSImage] = [:]
         for (item, window) in match(items: items, windows: windows) {
-            guard let window, let image = try? await image(of: window) else { continue }
+            guard let window else { mpLog("glyph \(item.displayTitle): 沒配到視窗 frame=\(item.frame)"); continue }
+            guard let image = try? await image(of: window) else { mpLog("glyph \(item.displayTitle): 截圖失敗"); continue }
+            mpLog("glyph \(item.displayTitle): item=\(item.frame) win=\(window.frame) app=\(window.owningApplication?.applicationName ?? "?")")
             // 時鐘那種是一長條文字（165x33），縮進方格會糊成一團看不懂。
             // 太扁的就不採用，讓呼叫端沿用原本的符號／app 圖示。
-            guard image.size.height > 0, image.size.width / image.size.height <= 2.5 else { continue }
+            guard image.size.height > 0, image.size.width / image.size.height <= 2.5 else {
+                mpLog("  -> 太扁被擋 \(image.size)"); continue }
             // 選單列圖示幾乎都是單色 template，標成 template 才能跟著淺色/深色模式變色，
             // 否則白色圖示在淺色面板上會整個看不見
             let trimmed = trimTransparent(image)
@@ -72,7 +75,8 @@ enum Capture {
             // 或 DynamicIsland 那種橫跨整條選單列的特殊項目。
             // 實測正常圖示只佔 24~51%，高亮底色接近 100%，70% 是安全的分界。
             guard image.size.height > 0,
-                  trimmed.size.height / image.size.height < 0.7 else { continue }
+                  trimmed.size.height / image.size.height < 0.7 else {
+                mpLog("  -> 佔滿高度被擋 trimmed=\(trimmed.size) win=\(image.size)"); continue }
             trimmed.isTemplate = true
             result[item.id] = trimmed
         }
